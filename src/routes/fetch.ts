@@ -1,7 +1,7 @@
 import { Router } from 'express';
 
 import { determineFileExtension } from '../core/download/MediaExtensionUtil';
-import { fetchBytes } from '../http/xhsHttp';
+import { fetchStream } from '../http/xhsHttp';
 
 /**
  * 单文件代理下载 —— 不落盘,服务端 fetch XHS CDN URL 后原样 stream 回浏览器。
@@ -12,6 +12,9 @@ import { fetchBytes } from '../http/xhsHttp';
  * Query:
  *   url      必填,XHS CDN 链接
  *   name     可选,自定义下载文件名;缺省时从 url 推断扩展名
+ *
+ * 流式:不再 collect 到内存,直接 for-await 把上游 chunk 写回响应;
+ * 上游 Content-Length 透传,便于前端 fetch + ReadableStream 自己算字节进度。
  */
 export const fetchRouter = Router();
 
@@ -26,8 +29,8 @@ fetchRouter.get('/fetch', async (req, res) => {
     return res.status(400).json({ error: 'url 必须以 http(s):// 开头' });
   }
 
-  const result = await fetchBytes(url);
-  if (!result) {
+  const handle = await fetchStream(url);
+  if (!handle) {
     return res.status(502).json({ error: `fetch 失败: ${url}` });
   }
 
@@ -37,12 +40,41 @@ fetchRouter.get('/fetch', async (req, res) => {
     ? customName.replace(/[\\/:*?"<>|]/g, '_')
     : `xhsdn-${Date.now()}.${ext}`;
 
-  res.setHeader('Content-Type', result.contentType);
-  res.setHeader('Content-Length', String(result.bytes.length));
+  res.setHeader('Content-Type', handle.contentType);
+  if (handle.contentLength !== undefined) {
+    res.setHeader('Content-Length', String(handle.contentLength));
+  }
   res.setHeader(
     'Content-Disposition',
     `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`,
   );
   res.setHeader('Cache-Control', 'no-store');
-  res.end(result.bytes);
+  res.setHeader('X-Accel-Buffering', 'no');
+
+  let aborted = false;
+  req.on('close', () => {
+    aborted = true;
+    handle.abort();
+  });
+
+  try {
+    for await (const chunk of handle.stream) {
+      if (aborted || res.writableEnded) break;
+      if (!res.write(chunk)) {
+        await new Promise<void>((r) => res.once('drain', r));
+      }
+    }
+    if (!aborted && !res.writableEnded) res.end();
+  } catch (e) {
+    if (!res.headersSent) {
+      const msg = e instanceof Error ? e.message : String(e);
+      res.status(500).json({ error: msg });
+    } else {
+      try {
+        res.destroy();
+      } catch {
+        /* ignore */
+      }
+    }
+  }
 });
