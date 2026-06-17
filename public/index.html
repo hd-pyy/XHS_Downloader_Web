@@ -31,6 +31,18 @@
       <h2>解析结果</h2>
       <div id="results"></div>
     </section>
+
+    <section id="download-progress" class="progress-card" hidden>
+      <h2>下载进度</h2>
+      <div class="progress-text">正在解析 <span class="cur" id="dp-current">0</span>/<span class="total" id="dp-total">0</span></div>
+      <div class="progress-bar-track"><div class="progress-bar-fill" id="dp-bar"></div></div>
+      <div class="progress-subbar-row">
+        <div class="progress-subbar-track" id="dp-subbar-wrap" hidden>
+          <div class="progress-subbar-fill" id="dp-subbar"></div>
+        </div>
+        <div class="progress-detail" id="dp-detail">…</div>
+      </div>
+    </section>
   </main>
 
   <script src="/app.js"></script>
