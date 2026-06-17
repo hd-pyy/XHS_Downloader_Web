@@ -1,6 +1,6 @@
 {
   "name": "xhsdn-web",
-  "version": "0.1.0-web",
+  "version": "0.2.0-web",
   "description": "XHS Downloader Web 版 —— Node + Express 后端,把 :core KMP 解析/下载算法 1:1 翻译成 TypeScript",
   "main": "dist/server.js",
   "scripts": {
