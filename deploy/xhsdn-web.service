@@ -1,0 +1,51 @@
+[Unit]
+Description=XHS_Downloader_Web - 小红书无水印解析 + 小程序代理后端
+Documentation=https://github.com/your-org/XHS_Downloader_Web
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+
+# 运行账户 (按需改;部署文档建议 useradd -m xhsapp)
+User=xhsapp
+Group=xhsapp
+
+# 项目根目录 (按需改)
+WorkingDirectory=/home/xhsapp/XHS_Downloader_Web
+
+# 环境变量
+Environment=NODE_ENV=production
+Environment=PORT=3030
+# 可选:启用 token 鉴权 (启用后小程序要在 wx.request header 加 x-wx-token: <值>)
+# Environment=WX_TOKEN=please-change-this-to-32-random-chars
+
+# 启动命令 (绝对路径,不依赖 shell PATH)
+ExecStart=/usr/bin/node dist/server.js
+
+# 优雅停止
+KillSignal=SIGTERM
+TimeoutStopSec=20
+
+# 崩了 5 秒后重启;1 分钟内重启超 5 次则放弃,避免雪崩
+Restart=on-failure
+RestartSec=5
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+# 资源 / 安全加固
+LimitNOFILE=65536
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+# storage 目录需要写,放行 (按 WorkingDirectory 调整)
+ReadWritePaths=/home/xhsapp/XHS_Downloader_Web/storage
+
+# 日志走 journald
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=xhsdn-web
+
+[Install]
+WantedBy=multi-user.target

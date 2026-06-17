@@ -5,6 +5,8 @@ import * as fs from 'fs';
 import { parseRouter } from './routes/parse';
 import { fetchRouter } from './routes/fetch';
 import { buildDownloadRouter } from './routes/download';
+import { wxRouter } from './routes/wx';
+import { proxyRouter } from './routes/proxy';
 
 const PORT = Number(process.env.PORT ?? 3000);
 const ROOT_DIR = path.resolve(__dirname, '..');
@@ -12,6 +14,8 @@ const PUBLIC_DIR = path.join(ROOT_DIR, 'public');
 const STORAGE_DIR = path.join(ROOT_DIR, 'storage');
 
 const app = express();
+// 反代 (Nginx) 之后必须信任,否则 req.ip 会拿到 127.0.0.1,限流粒度失效
+app.set('trust proxy', true);
 app.use(express.json({ limit: '1mb' }));
 
 // 简单访问日志
@@ -58,6 +62,10 @@ app.use(
     publicBaseUrl: '', // 同源部署,前端直接用 /media/...
   }),
 );
+
+// 微信小程序适配 + 媒体代理 (HTTPS 部署后给 wx.request / wx.downloadFile 用)
+app.use('/api', wxRouter);
+app.use('/api', proxyRouter);
 
 // health
 app.get('/api/health', (_req, res) => {
